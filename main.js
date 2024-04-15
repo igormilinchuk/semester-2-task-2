@@ -1,41 +1,37 @@
 const fs = require('fs');
 const { Transform } = require('stream');
 
-const readStream = fs.createReadStream('./input.txt', { highWaterMark: 30 }, { encoding: 'utf-8' });
-const writeStream = fs.createWriteStream('./output.txt', { encoding: 'utf-8' });
+class UpperCaseEveryThirdWord extends Transform {
+  constructor(options) {
+    super(options);
+    this.wordsCount = 0;
+  }
 
-let counterWords = 0;
+  _transform(chunk, encoding, callback) {
+    const words = chunk.toString().split(' ');
 
-const capitalizeTransform = new Transform({
-    transform(chunk, encoding, callback) {
-        const chunkStr = chunk.toString(); 
-        const words = chunkStr.split(/\b/); 
-        for (let i = 0; i < words.length; i++) {
-            if (/\b[\w'-]+\b/.test(words[i])) { 
-                counterWords++;
-                if (counterWords % 3 === 0) { 
-                    this.push(words[i].toUpperCase());
-                } else {
-                    this.push(words[i]);
-                }
-            } else {
-                this.push(words[i]);
-            }
-        }
-        callback();
-    }
-});
+    const modifiedWords = words.map((word, index) => {
+      if ((this.wordsCount + index + 1) % 3 === 0) {
+        return word.toUpperCase();
+      } else {
+        return word;
+      }
+    });
 
-readStream.pipe(capitalizeTransform).pipe(writeStream);
+    this.wordsCount += words.length;
 
-capitalizeTransform.on('error', (err) => {
-    console.error('Error occurred during transform:', err);
-});
+    const modifiedChunk = modifiedWords.join(' ');
 
-writeStream.on('finish', () => {
-    console.log('File has been written successfully.');
-});
+    callback(null, modifiedChunk);
+  }
+}
 
-readStream.on('error', (err) => {
-    console.error('Error occurred while reading the file:', err);
-});
+const inputFile = 'input.txt';
+
+const inputStream = fs.createReadStream(inputFile);
+
+const upperCaseStream = new UpperCaseEveryThirdWord();
+
+const outputStream = process.stdout;
+
+inputStream.pipe(upperCaseStream).pipe(outputStream);
